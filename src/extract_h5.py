@@ -13,8 +13,6 @@ train_x_ = tf.transpose(tf.linalg.normalize(train_x, axis=1)[0])
 test_x = np.array(hf.get('test')).astype(np.float32)
 test_x_ = tf.transpose(tf.linalg.normalize(test_x, axis=1)[0])
 
-# row_sums = np.sum(test_x, axis=1)
-# test_x_ = tf.transpose(tf.constant(test_x/row_sums[:, np.newaxis], dtype=tf.float32))
 
 distances = np.array(hf.get('distances'))
 neighbors = np.array(hf.get('neighbors'))

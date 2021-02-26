@@ -23,17 +23,9 @@ def create_universal_lookups(r):
         temp = bucket_order[i]
         class_order[counts[temp]+rolling_counts[temp]] = i
         rolling_counts[temp] += 1
-    np.save(config.lookups_loc+'class_order_'+str(r)+'.npy', class_order)
-    np.save(config.lookups_loc+'counts_'+str(r)+'.npy',counts)
-    np.save(config.lookups_loc+'bucket_order_'+str(r)+'.npy', bucket_order)
-
-def create_query_lookups(r):
-    bucket_order = np.zeros(config.feat_dim_orig, dtype=int)
-    #
-    for i in range(config.feat_dim_orig):
-        bucket = mmh3(i,seed=r)%config.feat_hash_dim
-        bucket_order[i] = bucket
-    np.save(config.query_lookups_loc+'bucket_order_'+str(r)+'.npy', bucket_order)
+    np.save(config.lookups_loc+'epoch_0/class_order_'+str(r)+'.npy', class_order)
+    np.save(config.lookups_loc+'epoch_0/counts_'+str(r)+'.npy',counts)
+    np.save(config.lookups_loc+'epoch_0/bucket_order_'+str(r)+'.npy', bucket_order)
 
 def input_example(labels, label_vals, inp_idxs, inp_vals): # for writing TFRecords
     labels_list = tf.train.Int64List(value = labels)

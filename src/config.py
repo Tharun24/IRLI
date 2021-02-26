@@ -1,19 +1,21 @@
 class train_config:
-    feat_dim =  512
-    n_classes = 670091 
+    datasets = {'Glove100':{'N':1183514,'d':100},
+                'Sift-128':{'N':1000000, 'd':128}
+                }
+    dataset_name = 'Glove100'
     ####
     n_cores = 1 # core count for TF REcord data loader
     B = 3000
-    batch_size = 1024
-    feat_hash_dim = 512
+    R = 16
+    num_gpus = 4
+    batch_size = 256
     hidden_dim = 1024
     ####
-    train_data_loc = '../data/amz-670k/'
-    tfrecord_loc = '../data/amz-670k/tfrecords/'
-    model_save_loc = '../saved_models/amz-670k/b_'+str(B)+'/'
-    query_lookups_loc = '../lookups/amz-670k/b_'+str(feat_hash_dim)+'/'
-    lookups_loc = '../lookups/amz-670k/b_'+str(B)+'/'
-    logfile = '../logs/amz-670k/b_'+str(B)+'/'
+    train_data_loc = '../data/'+dataset_name+'/'
+    tfrecord_loc = '../data/'+dataset_name+'/tfrecords/'
+    model_save_loc = '../saved_models/'+dataset_name+'/b_'+str(B)+'/'
+    lookups_loc = '../lookups/'+dataset_name+'/b_'+str(B)+'/'
+    logfolder = '../logs/'+dataset_name+'/b_'+str(B)+'/'
     # Only used if training multiple repetitions from the same script
     R_per_gpu = 2
 
@@ -31,13 +33,13 @@ class eval_config:
     feat_hash_dim = 512
     hidden_dim = 1024
     ###
-    query_lookups_loc = '../lookups/amz-670k/b_'+str(feat_hash_dim)+'/'
-    lookups_loc = '../lookups/amz-670k/b_'+str(B)+'/epoch_'+str(eval_epoch-5)+'/'
-    model_loc = '../saved_models/amz-670k/b_'+str(B)+'/'
-    eval_data_loc = '../data/amz-670k/'
-    tfrecord_loc = '../data/amz-670k/tfrecords/'
+    query_lookups_loc = '../lookups/'+dataset_name+'/b_'+str(feat_hash_dim)+'/'
+    lookups_loc = '../lookups/'+dataset_name+'/b_'+str(B)+'/epoch_'+str(eval_epoch-5)+'/'
+    model_loc = '../saved_models/'+dataset_name+'/b_'+str(B)+'/'
+    eval_data_loc = '../data/'+dataset_name+'/'
+    tfrecord_loc = '../data/'+dataset_name+'/tfrecords/'
     ### only used by approx_eval.py (ignore if you are using evaluate.py)
     topk = 100 # how many top buckets to take
     minfreq = 4 # min number of times a class
-    logfile = '../logs/amz-670k/b_'+str(B)+'/R_'+str(R)+'_topk_'+str(topk)+'_mf_'+str(minfreq)+'_epc_'+str(eval_epoch)+'.txt'  
+    logfile = '../logs/'+dataset_name+'/b_'+str(B)+'/R_'+str(R)+'_topk_'+str(topk)+'_mf_'+str(minfreq)+'_epc_'+str(eval_epoch)+'.txt'  
 
