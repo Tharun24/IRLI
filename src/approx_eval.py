@@ -1,4 +1,3 @@
-from config import eval_config as config
 import tensorflow as tf
 import time
 import numpy as np
@@ -12,18 +11,19 @@ from multiprocessing import Pool
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("--R", default=32, type=int)
-parser.add_argument("--R_per_gpu", default=8, type=int)
-parser.add_argument("--gpu", default='1,2', type=str)
+parser.add_argument("--R", default=16, type=int)
+parser.add_argument("--gpus", default=[0,1,2,3], type=int)
 parser.add_argument("--topk", default=25, type=int)
 parser.add_argument("--mf", default=16, type=int)
 parser.add_argument("--eval_epoch", default=30, type=int)
+parser.add_argument("--n_cores", default=32, type=int) # core count for parallelizable operations
+parser.add_argument("--batch_size", default=320, type=int)
 args = parser.parse_args()
 
-config.logfile = '../logs/amz-670k/b_'+str(config.B)+'/R_'+str(args.R)+'_topk_'+str(args.topk)+'_mf_'+str(args.mf)+'_epc_'+str(args.eval_epoch)+'.txt'
-config.lookups_loc = '../lookups/amz-670k/b_'+str(config.B)+'/epoch_'+str(args.eval_epoch-5)+'/'
+args.logfile = '../logs/amz-670k/b_'+str(config.B)+'/R_'+str(args.R)+'_topk_'+str(args.topk)+'_mf_'+str(args.mf)+'_epc_'+str(args.eval_epoch)+'.txt'
+args.lookups_loc = '../lookups/amz-670k/b_'+str(config.B)+'/epoch_'+str(args.eval_epoch-5)+'/'
 
-os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in args.gpus])
 
 ############################## load lookups ################################
 N = config.n_classes
@@ -32,13 +32,10 @@ lookup = np.zeros([args.R,config.n_classes]).astype(int)
 inv_lookup = np.zeros([args.R,config.n_classes]).astype(int)
 counts = np.zeros([args.R,config.B+1]).astype(int)
 for r in range(args.R):
-    lookup[r] = np.load(config.lookups_loc+'bucket_order_'+str(r)+'.npy')[:N]
-    inv_lookup[r] = np.load(config.lookups_loc+'class_order_'+str(r)+'.npy')[:N] 
-    counts[r] = np.load(config.lookups_loc+'counts_'+str(r)+'.npy')[:config.B+1] 
+    lookup[r] = np.load(args.lookups_loc+'bucket_order_'+str(r)+'.npy')[:N]
+    inv_lookup[r] = np.load(args.lookups_loc+'class_order_'+str(r)+'.npy')[:N] 
+    counts[r] = np.load(args.lookups_loc+'counts_'+str(r)+'.npy')[:config.B+1] 
 
-# query_lookup = np.empty([args.R, config.feat_dim_orig], dtype=int)
-# for r in range(args.R):
-#     query_lookup[r] = np.load(config.query_lookups_loc+'bucket_order_'+str(r)+'.npy')
 
 ##################################
 W1 = [None for r in range(args.R)]
@@ -67,17 +64,14 @@ dataset = dataset.apply(tf.contrib.data.map_and_batch(
 iterator = dataset.make_initializable_iterator()
 next_y_idxs, next_y_vals, next_x_idxs, next_x_vals = iterator.get_next()
 
-# x = [tf.SparseTensor(tf.stack([next_x_idxs.indices[:,0], tf.gather(query_lookup[r], next_x_idxs.values)], axis=-1),
-#     next_x_vals.values, [config.batch_size, config.feat_hash_dim]) for r in range(args.R)]
-
 x = [tf.SparseTensor(tf.stack([next_x_idxs.indices[:,0], next_x_idxs.values], axis=-1),
-    next_x_vals.values, [config.batch_size, config.feat_hash_dim]) for r in range(args.R)]
+    next_x_vals.values, [config.batch_size, config.config.inp_dim]) for r in range(args.R)]
 
 ############################## Create Graph ################################
 for r in range(args.R):
-    with tf.device('/gpu:'+str(r//args.R_per_gpu)): 
+    with tf.device('/gpu:'+str(args.gpus[r//len(args.gpus)])): 
         ######
-        # W1[r] = tf.Variable(tf.truncated_normal([config.feat_hash_dim, config.hidden_dim], stddev=0.05, dtype=tf.float32))
+        # W1[r] = tf.Variable(tf.truncated_normal([config.config.inp_dim, config.hidden_dim], stddev=0.05, dtype=tf.float32))
         # b1[r] = tf.Variable(tf.truncated_normal([config.hidden_dim], stddev=0.05, dtype=tf.float32))
         # hidden_layer[r] = tf.nn.relu(tf.sparse_tensor_dense_matmul(x[r],W1[r])+b1[r])
         # #
@@ -152,7 +146,7 @@ p = Pool(config.n_cores)
 
 begin_time = time.time()
 
-with open(config.logfile, 'a', encoding='utf-8') as fw:
+with open(args.logfile, 'a', encoding='utf-8') as fw:
     while True:
         try:
             top_buckets_, y_idxs = sess.run([top_buckets, next_y_idxs])

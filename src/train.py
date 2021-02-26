@@ -30,10 +30,7 @@ if not args.gpu=='all':
 r = int(args.repetition) # which repetition
 
 ############################## Test code from here ################################
-if args.load_epoch>0:
-    lookup = tf.Variable(np.load(config.lookups_loc+'epoch_'+str(args.load_epoch)+'/'+'bucket_order_'+str(r)+'.npy'))
-else:
-    lookup = tf.Variable(np.load(config.lookups_loc+'bucket_order_'+str(r)+'.npy'))
+lookup = tf.Variable(np.load(config.lookups_loc+'epoch_'+str(args.load_epoch)+'/'+'bucket_order_'+str(r)+'.npy'))
 
 train_files = glob.glob(config.tfrecord_loc+'*train*.tfrecords')
 
@@ -48,7 +45,7 @@ next_y_idxs, next_y_vals, next_x_idxs, next_x_vals = iterator.get_next()
 x_idxs = tf.stack([next_x_idxs.indices[:,0], next_x_idxs.values], axis=-1)
 
 x_vals = next_x_vals.values
-x = tf.SparseTensor(x_idxs, x_vals, [config.batch_size, config.feat_hash_dim])
+x = tf.SparseTensor(x_idxs, x_vals, [config.batch_size, config.inp_dim])
 ####
 y_idxs = tf.stack([next_y_idxs.indices[:,0], tf.gather(lookup, next_y_idxs.values)], axis=-1)
 y_vals = next_y_vals.values
@@ -58,7 +55,7 @@ y_ = tf.sparse_tensor_to_dense(y, validate_indices=False)
 if args.load_epoch>0:
     params=np.load(config.model_save_loc+'r_'+str(r)+'_epoch_'+str(args.load_epoch)+'.npz')
     #
-    W1_tmp = tf.placeholder(tf.float32, shape=[config.datasets[config.dataset_name]['d'], config.hidden_dim])
+    W1_tmp = tf.placeholder(tf.float32, shape=[config.inp_dim, config.hidden_dim])
     b1_tmp = tf.placeholder(tf.float32, shape=[config.hidden_dim])
     W1 = tf.Variable(W1_tmp)
     b1 = tf.Variable(b1_tmp)
@@ -70,7 +67,7 @@ if args.load_epoch>0:
     b2 = tf.Variable(b2_tmp)
     logits = tf.matmul(hidden_layer,W2)+b2
 else:
-    W1 = tf.Variable(tf.truncated_normal([config.feat_hash_dim, config.hidden_dim], stddev=0.05, dtype=tf.float32))
+    W1 = tf.Variable(tf.truncated_normal([config.inp_dim, config.hidden_dim], stddev=0.05, dtype=tf.float32))
     b1 = tf.Variable(tf.truncated_normal([config.hidden_dim], stddev=0.05, dtype=tf.float32))
     hidden_layer = tf.nn.relu(tf.sparse_tensor_dense_matmul(x,W1)+b1)
     #
@@ -79,7 +76,6 @@ else:
     logits = tf.matmul(hidden_layer,W2)+b2
 
 
-top_buckets = tf.nn.top_k(logits, k=args.k1, sorted=True)
 loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=y_))
 train_op = tf.train.AdamOptimizer().minimize(loss)
 
@@ -136,7 +132,7 @@ for curr_epoch in range(args.load_epoch+1,args.load_epoch+args.n_epochs+1):
         ################
         begin_time = time.time()
         sess.run(iterator.initializer)
-        aff_mat = np.zeros([config.datasets[config.dataset_name]['N'],config.B], dtype=np.float16)
+        aff_mat = np.zeros([config.n_classes,config.B], dtype=np.float16)
         while True:
             try:
                 logits_, y_idxs_ = sess.run([logits, next_y_idxs])
@@ -150,7 +146,7 @@ for curr_epoch in range(args.load_epoch+1,args.load_epoch+args.n_epochs+1):
         ###
         print('finished re-assigning labels')
         print('time_elapsed for re-assignment:',time.time()-begin_time)
-        top_preds = np.zeros([config.datasets[config.dataset_name]['N'],args.k2], dtype=int)
+        top_preds = np.zeros([config.n_classes,args.k2], dtype=int)
         overall_count = 0
         ###
         for i in range(aff_mat.shape[0]//config.batch_size):
@@ -159,15 +155,15 @@ for curr_epoch in range(args.load_epoch+1,args.load_epoch+args.n_epochs+1):
             topK(aff_mat[start_idx:end_idx].astype(np.float32), top_preds[start_idx:end_idx], config.B, config.batch_size, args.k2, 2)
             overall_count = end_idx
         ###
-        if overall_count<config.datasets[config.dataset_name]['N']:
+        if overall_count<config.n_classes:
             start_idx = overall_count
-            end_idx = config.datasets[config.dataset_name]['N']
+            end_idx = config.n_classes
             topK(aff_mat[start_idx:end_idx].astype(np.float32), top_preds[start_idx:end_idx], config.B, end_idx-start_idx, args.k2, 2)
             overall_count = end_idx
         ###
         counts = np.zeros(config.B+1, dtype=int)
-        bucket_order = np.zeros(config.datasets[config.dataset_name]['N'], dtype=int)
-        for i in range(config.datasets[config.dataset_name]['N']):
+        bucket_order = np.zeros(config.n_classes, dtype=int)
+        for i in range(config.n_classes):
             bucket = top_preds[i, np.argmin(counts[top_preds[i]+1])] 
             bucket_order[i] = bucket
             counts[bucket+1] += 1
@@ -176,8 +172,8 @@ for curr_epoch in range(args.load_epoch+1,args.load_epoch+args.n_epochs+1):
         ###
         counts = np.cumsum(counts)
         rolling_counts = np.zeros(config.B, dtype=int)
-        class_order = np.zeros(config.datasets[config.dataset_name]['N'],dtype=int)
-        for i in range(config.datasets[config.dataset_name]['N']):
+        class_order = np.zeros(config.n_classes,dtype=int)
+        for i in range(config.n_classes):
             temp = bucket_order[i]
             class_order[counts[temp]+rolling_counts[temp]] = i
             rolling_counts[temp] += 1
