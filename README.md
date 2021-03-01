@@ -13,11 +13,12 @@ IRLI query process. Here the query vector is passed through R trained  models, a
 </p>
 
 Prerequisites:
-You are expected to have TensorFlow 1.x installed (1.8 - 1.14 should work) and have atleast 2 GPUs with 32GB memory (or 4 GPUs with 16 GB memory). We will add support for TensorFlow 2.x in subsequent versions. Cython is also required for importing a C++ function gather_batch during evaluation (if you cannot use C++ for any reason, please refer to the Cython vs Python for evaluation section below). sklearn is required for importing murmurhash3_32 (from sklearn.utils). Although the version requirements for cython and sklearn are non that stringent as Tensorflow, use Cython-0.29.14 and sklearn-0.22.2 in case you run into any issues.
 
 1) Tensorflow- 1.8 - 1.14 should work
-2) Minimum 1 GPU, preferred >4 GPUs with 32GB memory
+2) Minimum 2 GPU, preferred >4 GPUs with 32GB memory
 3) Memory required - Around 200 GB
+
+Cython is also required for importing a C++ function gather_batch during evaluation. Although the version requirements for cython is non that stringent as Tensorflow, use Cython-0.29.14 in case you run into any issues.
 
 Instructions to run:
 1) Edit the config.py for required parameters. 
